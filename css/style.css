@@ -262,8 +262,29 @@ code {
 }
 
 .settings-card .form-row { margin-bottom: 14px; }
-.bind-status { font-size: 13px; color: var(--muted); margin-top: 10px; }
+.bind-status { font-size: 13px; color: var(--muted); margin-top: 0; }
 .bind-status.bound { color: var(--accent); font-weight: 600; }
+.bind-status.warn { color: #b45309; font-weight: 600; }
+
+.connection-panel { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+.qr-box {
+  width: 220px;
+  height: 220px;
+  flex-shrink: 0;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  padding: 10px;
+  text-align: center;
+}
+.qr-placeholder { font-size: 13px; color: var(--muted); }
+.qr-placeholder.hidden { display: none; }
+.qr-image { width: 100%; height: 100%; object-fit: contain; }
+.qr-image.hidden { display: none; }
+.connection-info { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 12px; }
 
 .reminder-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
 .log-item { font-size: 13px; padding: 10px 12px; background: #f9fafb; border-radius: 8px; border: 1px solid var(--border); }

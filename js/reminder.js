@@ -1,30 +1,31 @@
-// WhatsApp 绑定与到期提醒 —— 本文件是教学模板的核心 Mock 部分。
+// WhatsApp 自我提醒 —— 连接本地后端（server/），用扫二维码的方式
+// 把你自己的 WhatsApp 挂上去，跟打开网页版 WhatsApp Web 是同一回事。
 //
-// 重要说明：这里并不会真的发送 WhatsApp 消息。
-// 绑定的号码只存在浏览器的 localStorage 里，提醒也只是写进本地的
-// 「提醒记录」列表 + 弹一个浏览器通知，用来模拟「消息已送达」的体验。
+// 后端负责维持 WhatsApp 连接、生成二维码、实际发送消息（发到你自己的聊天）。
+// 这个文件只负责：轮询后端连接状态、显示二维码、以及在任务快到期时
+// 呼叫后端的 /api/send 接口。
 //
-// 想接真实 WhatsApp，需要：
-//   1. 一个后端服务（Node / Python 都行），保存 WhatsApp API 的密钥，绝对不要放在前端。
-//   2. 后端调用 WhatsApp Business Cloud API 或 Twilio 等服务的发送消息接口。
-//   3. 把下面 sendWhatsAppMessage() 里的模拟逻辑，换成对你后端接口的 fetch() 调用。
+// 如果你把后端跑在别的机器 / 别的端口，改这里的 BACKEND_URL 就好。
+const BACKEND_URL = 'http://localhost:3001';
 
-const WHATSAPP_SETTINGS_KEY = 'tm_whatsapp_settings';
+const REMINDER_SETTINGS_KEY = 'tm_reminder_settings';
 const REMINDER_LOG_KEY = 'tm_reminder_log';
-const DEFAULT_SETTINGS = { phoneNumber: '', enabled: false, leadMinutes: 60 };
+const DEFAULT_SETTINGS = { enabled: false, leadMinutes: 60 };
 
 let reminderIntervalId = null;
+let statusPollIntervalId = null;
+let currentStatus = 'connecting'; // 'connecting' | 'connected' | 'disconnected'
 
-function loadWhatsappSettings() {
+function loadReminderSettings() {
   try {
-    return JSON.parse(localStorage.getItem(WHATSAPP_SETTINGS_KEY)) || DEFAULT_SETTINGS;
+    return JSON.parse(localStorage.getItem(REMINDER_SETTINGS_KEY)) || DEFAULT_SETTINGS;
   } catch (e) {
     return DEFAULT_SETTINGS;
   }
 }
 
-function saveWhatsappSettings(settings) {
-  localStorage.setItem(WHATSAPP_SETTINGS_KEY, JSON.stringify(settings));
+function saveReminderSettings(settings) {
+  localStorage.setItem(REMINDER_SETTINGS_KEY, JSON.stringify(settings));
 }
 
 function loadReminderLog() {
@@ -40,56 +41,87 @@ function saveReminderLog(log) {
 }
 
 function initReminderView() {
-  const settings = loadWhatsappSettings();
-  document.getElementById('whatsappNumber').value = settings.phoneNumber;
+  const settings = loadReminderSettings();
   document.getElementById('remindersEnabled').checked = settings.enabled;
   document.getElementById('leadMinutes').value = String(settings.leadMinutes);
-  renderBindStatus();
   renderReminderLog();
 
-  document.getElementById('bindBtn').addEventListener('click', function () {
-    const phone = document.getElementById('whatsappNumber').value.trim();
-    if (!phone) {
-      alert('请输入 WhatsApp 号码');
-      return;
-    }
-    saveWhatsappSettings({
-      phoneNumber: phone,
+  document.getElementById('saveSettingsBtn').addEventListener('click', function () {
+    saveReminderSettings({
       enabled: document.getElementById('remindersEnabled').checked,
       leadMinutes: Number(document.getElementById('leadMinutes').value),
     });
-    renderBindStatus();
     restartReminderEngine();
   });
 
-  document.getElementById('unbindBtn').addEventListener('click', function () {
-    saveWhatsappSettings(DEFAULT_SETTINGS);
-    document.getElementById('whatsappNumber').value = '';
-    document.getElementById('remindersEnabled').checked = false;
-    renderBindStatus();
-    restartReminderEngine();
+  document.getElementById('disconnectBtn').addEventListener('click', function () {
+    if (!confirm('确定要断开 WhatsApp 连接吗？下次要提醒需要重新扫码。')) return;
+    fetch(BACKEND_URL + '/api/logout', { method: 'POST' })
+      .then(function () { pollConnectionStatus(); })
+      .catch(function () { alert('无法连接到本地后端，请确认 server/ 已启动'); });
   });
 
   document.getElementById('testReminderBtn').addEventListener('click', function () {
-    const s = loadWhatsappSettings();
-    if (!s.phoneNumber) {
-      alert('请先绑定 WhatsApp 号码');
-      return;
-    }
-    sendWhatsAppMessage(s.phoneNumber, '这是一条测试提醒消息 🔔（来自任务管理器模板）');
+    sendWhatsAppMessage('这是一条测试提醒消息 🔔（来自任务管理器模板）');
   });
+
+  pollConnectionStatus();
+  statusPollIntervalId = setInterval(pollConnectionStatus, 3000);
 }
 
-function renderBindStatus() {
-  const s = loadWhatsappSettings();
+function setBindStatus(text, cls) {
   const el = document.getElementById('bindStatus');
-  if (s.phoneNumber) {
-    el.textContent = '✅ 已绑定：' + s.phoneNumber + '（提醒' + (s.enabled ? '已启用' : '已停用') + '）';
-    el.className = 'bind-status bound';
-  } else {
-    el.textContent = '尚未绑定 WhatsApp 号码';
-    el.className = 'bind-status';
-  }
+  el.textContent = text;
+  el.className = 'bind-status' + (cls ? ' ' + cls : '');
+}
+
+function pollConnectionStatus() {
+  fetch(BACKEND_URL + '/api/status')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      currentStatus = data.status;
+
+      if (data.status === 'connected') {
+        setBindStatus('✅ 已连接：' + (data.selfNumber || '未知号码'), 'bound');
+        document.getElementById('qrPlaceholder').classList.remove('hidden');
+        document.getElementById('qrPlaceholder').textContent = '✅ 已连接';
+        document.getElementById('qrImage').classList.add('hidden');
+      } else if (data.status === 'connecting') {
+        setBindStatus('尚未连接，请用手机 WhatsApp 扫描左边的二维码', 'warn');
+        fetchQrCode();
+      } else {
+        setBindStatus('WhatsApp 未连接（已断开）', 'warn');
+        document.getElementById('qrPlaceholder').classList.remove('hidden');
+        document.getElementById('qrPlaceholder').textContent = '尚未生成二维码，请稍候…';
+        document.getElementById('qrImage').classList.add('hidden');
+      }
+    })
+    .catch(function () {
+      currentStatus = 'disconnected';
+      setBindStatus('⚠️ 无法连接到本地后端，请先在 server/ 目录执行 npm start', 'warn');
+      document.getElementById('qrPlaceholder').classList.remove('hidden');
+      document.getElementById('qrPlaceholder').textContent = '后端未启动';
+      document.getElementById('qrImage').classList.add('hidden');
+    });
+}
+
+function fetchQrCode() {
+  fetch(BACKEND_URL + '/api/qr')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      const img = document.getElementById('qrImage');
+      const placeholder = document.getElementById('qrPlaceholder');
+      if (data.qr) {
+        img.src = data.qr;
+        img.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+      } else {
+        img.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+        placeholder.textContent = '正在生成二维码…';
+      }
+    })
+    .catch(function () { /* 下一轮轮询会重试 */ });
 }
 
 function renderReminderLog() {
@@ -103,37 +135,44 @@ function renderReminderLog() {
   log.slice().reverse().forEach(function (entry) {
     const li = document.createElement('li');
     li.className = 'log-item';
-    li.innerHTML = '<span class="log-time">' + entry.time + '</span> 已（模拟）发送给 <strong>' +
-      escapeHtml(entry.phone) + '</strong>：' + escapeHtml(entry.message);
+    li.innerHTML = '<span class="log-time">' + entry.time + '</span> ' + entry.status + '：' +
+      escapeHtml(entry.message);
     ul.appendChild(li);
   });
 }
 
-function sendWhatsAppMessage(phoneNumber, message) {
-  // TODO(学员任务): 换成真实 API 调用，例如：
-  // fetch('/api/send-whatsapp', {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({ to: phoneNumber, message: message }),
-  // });
-
+function sendWhatsAppMessage(message) {
   const log = loadReminderLog();
-  log.push({ time: new Date().toLocaleString('zh-CN'), phone: phoneNumber, message: message });
-  saveReminderLog(log);
-  renderReminderLog();
 
-  if ('Notification' in window) {
-    if (Notification.permission === 'granted') {
-      new Notification('WhatsApp 提醒（模拟）', { body: message });
-    } else if (Notification.permission !== 'denied') {
-      Notification.requestPermission();
-    }
-  }
+  fetch(BACKEND_URL + '/api/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: message }),
+  })
+    .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+    .then(function (result) {
+      log.push({
+        time: new Date().toLocaleString('zh-CN'),
+        message: message,
+        status: result.ok ? '✅ 已发送到你的 WhatsApp' : '❌ 发送失败（' + (result.data.error || '未知错误') + '）',
+      });
+      saveReminderLog(log);
+      renderReminderLog();
+    })
+    .catch(function () {
+      log.push({
+        time: new Date().toLocaleString('zh-CN'),
+        message: message,
+        status: '❌ 发送失败（无法连接到本地后端）',
+      });
+      saveReminderLog(log);
+      renderReminderLog();
+    });
 }
 
 function checkDueTasksAndRemind() {
-  const settings = loadWhatsappSettings();
-  if (!settings.enabled || !settings.phoneNumber) return;
+  const settings = loadReminderSettings();
+  if (!settings.enabled || currentStatus !== 'connected') return;
 
   const tasks = loadTasks();
   const now = new Date();
@@ -150,7 +189,7 @@ function checkDueTasksAndRemind() {
       const message = now >= due
         ? '⏰ 任务《' + task.title + '》已到期！'
         : '⏰ 任务《' + task.title + '》将在 ' + settings.leadMinutes + ' 分钟内到期，请及时处理。';
-      sendWhatsAppMessage(settings.phoneNumber, message);
+      sendWhatsAppMessage(message);
       task.notifiedReminder = true;
       changed = true;
     }
@@ -161,7 +200,7 @@ function checkDueTasksAndRemind() {
 
 function startReminderEngine() {
   checkDueTasksAndRemind();
-  // 每 20 秒检查一次，仅用于教学演示。真实产品应把定时检查放到后端（cron / 排程任务）。
+  // 每 20 秒检查一次，仅用于教学演示。真实产品应把定时检查放到后端排程。
   reminderIntervalId = setInterval(checkDueTasksAndRemind, 20000);
 }
 

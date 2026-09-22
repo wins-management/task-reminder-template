@@ -1,0 +1,17 @@
+{
+  "name": "task-reminder-whatsapp-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "本地 WhatsApp 自我提醒后端：扫码（像 WhatsApp Web 一样）把你自己的 WhatsApp 挂上去，用来给自己转发任务到期提醒。",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "pino": "^9.3.2",
+    "qrcode": "^1.5.4"
+  }
+}
