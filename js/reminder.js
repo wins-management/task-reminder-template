@@ -179,7 +179,7 @@ function checkDueTasksAndRemind() {
   let changed = false;
 
   tasks.forEach(function (task) {
-    if (task.done || task.notifiedReminder) return;
+    if (task.status === 'done' || task.notifiedReminder) return;
 
     const due = new Date(task.dueDate + 'T' + task.dueTime);
     const leadMs = settings.leadMinutes * 60 * 1000;

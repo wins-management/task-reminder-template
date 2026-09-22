@@ -14,6 +14,8 @@
 
 * { box-sizing: border-box; }
 
+.hidden { display: none !important; }
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif;
@@ -84,34 +86,46 @@ code {
 .login-card .mock-note { margin-top: 10px; font-size: 12px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 12px; text-align: left; }
 
 /* --- App 外壳 --- */
-.app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+.app-shell { min-height: 100vh; display: flex; }
 
-.app-header {
+.sidebar {
+  width: 230px;
+  flex-shrink: 0;
   background: var(--card);
-  border-bottom: 1px solid var(--border);
-  padding: 12px 24px;
+  border-right: 1px solid var(--border);
   display: flex;
-  align-items: center;
-  gap: 24px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  padding: 20px 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
 }
-.brand { font-weight: 700; font-size: 16px; }
-.main-nav { display: flex; gap: 8px; flex: 1; }
-.nav-btn {
+.sidebar-brand { font-weight: 700; font-size: 16px; margin-bottom: 24px; padding: 0 8px; }
+.sidebar-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.sidebar-link {
   background: transparent;
   border: none;
-  padding: 8px 14px;
+  text-align: left;
+  padding: 10px 12px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   color: var(--muted);
   cursor: pointer;
 }
-.nav-btn:hover { background: #f0f2f5; }
-.nav-btn.active { background: #eef2ff; color: var(--primary); }
-.user-box { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
+.sidebar-link:hover { background: #f0f2f5; }
+.sidebar-link.active { background: #eef2ff; color: var(--primary); }
+.sidebar-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sidebar-user { font-size: 13px; color: var(--muted); padding: 0 8px; }
 
-.app-main { flex: 1; padding: 24px; max-width: 860px; margin: 0 auto; width: 100%; }
+.app-content { flex: 1; min-width: 0; }
+.app-main { padding: 24px; max-width: 1000px; margin: 0 auto; width: 100%; }
 
 .view { display: none; }
 .view.active { display: block; }
@@ -122,6 +136,28 @@ code {
   justify-content: space-between;
   margin-bottom: 16px;
 }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.toolbar .filter-bar { margin-bottom: 0; }
+.view-switch { display: flex; gap: 6px; }
+.switch-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.switch-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
 /* --- 卡片 --- */
 .card {
@@ -235,6 +271,9 @@ code {
 }
 .badge-priority { background: #eef2ff; color: var(--primary); }
 .badge-overdue { background: #fee2e2; color: var(--danger); }
+.badge-status-todo { background: #f3f4f6; color: var(--muted); }
+.badge-status-doing { background: #dbeafe; color: #1d4ed8; }
+.badge-status-done { background: #dcfce7; color: #15803d; }
 
 .task-actions { display: flex; gap: 4px; }
 .icon-btn {
@@ -248,6 +287,84 @@ code {
 .icon-btn:hover { background: #f0f2f5; }
 
 .empty-state { text-align: center; color: var(--muted); font-size: 14px; padding: 30px 0; }
+
+/* --- 表格视图 --- */
+.task-table-wrap {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.task-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.task-table th, .task-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.task-table th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; background: #fafafa; }
+.task-table tbody tr:last-child td { border-bottom: none; }
+.task-table tbody tr.done .table-title-cell { opacity: 0.55; text-decoration: line-through; }
+.task-table .col-actions { white-space: nowrap; width: 1%; }
+.table-title-cell { font-weight: 600; }
+.status-select {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background: #fff;
+}
+
+/* --- 看板视图 --- */
+.kanban-board { display: flex; gap: 16px; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; }
+.kanban-column {
+  flex: 1;
+  min-width: 260px;
+  background: #eef0f4;
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.kanban-column-header {
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+.kanban-count {
+  background: var(--card);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.kanban-column-body { display: flex; flex-direction: column; gap: 10px; min-height: 60px; border-radius: 8px; transition: background 0.1s; }
+.kanban-column-body.drag-over { background: #dbeafe; outline: 2px dashed var(--primary); outline-offset: -2px; }
+
+.kanban-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  box-shadow: var(--shadow);
+  cursor: grab;
+}
+.kanban-card.priority-low { border-left-color: #9ca3af; }
+.kanban-card.priority-medium { border-left-color: #f59e0b; }
+.kanban-card.priority-high { border-left-color: var(--danger); }
+.kanban-card-title { font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.kanban-card-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.kanban-card-notes { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.kanban-card-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.kanban-move-group { display: flex; gap: 2px; }
+.kanban-card-icons { display: flex; gap: 2px; }
+.kanban-card .icon-btn { font-size: 13px; padding: 4px 6px; }
+.kanban-card .move-btn:disabled { opacity: 0.3; cursor: default; }
+.kanban-card .move-btn:disabled:hover { background: transparent; }
 
 /* --- WhatsApp 设置 --- */
 .mock-banner {
@@ -291,9 +408,28 @@ code {
 .log-time { color: var(--muted); margin-right: 6px; }
 
 /* --- 响应式 --- */
+@media (max-width: 768px) {
+  .app-shell { flex-direction: column; }
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 12px;
+    gap: 10px;
+    overflow-x: auto;
+  }
+  .sidebar-brand { margin-bottom: 0; white-space: nowrap; padding: 0 4px; font-size: 14px; }
+  .sidebar-nav { flex-direction: row; flex: 1; }
+  .sidebar-link { white-space: nowrap; padding: 8px 10px; }
+  .sidebar-footer { flex-direction: row; border-top: none; padding-top: 0; flex-shrink: 0; }
+  .sidebar-user { display: none; }
+  .sidebar-footer .btn-block { width: auto; white-space: nowrap; }
+}
+
 @media (max-width: 640px) {
-  .app-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .main-nav { width: 100%; }
   .form-row-2, .form-row-3 { flex-direction: column; }
   .app-main { padding: 16px; }
+  .toolbar { flex-direction: column; align-items: stretch; }
 }

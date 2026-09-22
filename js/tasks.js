@@ -1,9 +1,13 @@
 // 任务的增删改查，数据存在 localStorage（每台设备/浏览器各自独立）。
+// 支持三种视图：卡片 / 表格 / 看板，共用同一份数据和同一套过滤条件。
 
 const TASKS_KEY = 'tm_tasks';
 const PRIORITY_LABEL = { low: '低', medium: '中', high: '高' };
+const STATUS_LABEL = { todo: '待办', doing: '进行中', done: '已完成' };
+const STATUS_ORDER = ['todo', 'doing', 'done'];
 
 let currentFilter = 'all';
+let currentViewMode = 'card';
 
 function loadTasks() {
   try {
@@ -19,6 +23,12 @@ function saveTasks(tasks) {
 
 function uid() {
   return 't_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 // 首次打开时塞几笔示范任务，让界面一开始看起来就有内容，方便想象实际用起来的样子。
@@ -37,21 +47,15 @@ function seedDemoTasksIfEmpty() {
 
   const now = new Date().toISOString();
   const demoTasks = [
-    { id: uid(), title: '提交本周工作周报', dueDate: offsetDate(0), dueTime: '18:00', priority: 'high', notes: '记得附上下周计划', done: false, createdAt: now, notifiedReminder: false },
-    { id: uid(), title: '客户提案设计稿定稿', dueDate: offsetDate(0), dueTime: '15:30', priority: 'high', notes: '', done: false, createdAt: now, notifiedReminder: false },
-    { id: uid(), title: '缴纳这个月的水电费', dueDate: offsetDate(-1), dueTime: '23:59', priority: 'medium', notes: '网银转账即可', done: false, createdAt: now, notifiedReminder: false },
-    { id: uid(), title: '团队周会', dueDate: offsetDate(1), dueTime: '10:00', priority: 'medium', notes: '会议室 A', done: false, createdAt: now, notifiedReminder: false },
-    { id: uid(), title: '复习 Claude Code 课程笔记', dueDate: offsetDate(3), dueTime: '20:00', priority: 'low', notes: '', done: false, createdAt: now, notifiedReminder: false },
-    { id: uid(), title: '回复设计师的反馈邮件', dueDate: offsetDate(-2), dueTime: '12:00', priority: 'low', notes: '', done: true, createdAt: now, notifiedReminder: false },
+    { id: uid(), title: '提交本周工作周报', dueDate: offsetDate(0), dueTime: '18:00', priority: 'high', notes: '记得附上下周计划', status: 'todo', createdAt: now, notifiedReminder: false },
+    { id: uid(), title: '客户提案设计稿定稿', dueDate: offsetDate(0), dueTime: '15:30', priority: 'high', notes: '', status: 'doing', createdAt: now, notifiedReminder: false },
+    { id: uid(), title: '缴纳这个月的水电费', dueDate: offsetDate(-1), dueTime: '23:59', priority: 'medium', notes: '网银转账即可', status: 'todo', createdAt: now, notifiedReminder: false },
+    { id: uid(), title: '团队周会', dueDate: offsetDate(1), dueTime: '10:00', priority: 'medium', notes: '会议室 A', status: 'doing', createdAt: now, notifiedReminder: false },
+    { id: uid(), title: '复习 Claude Code 课程笔记', dueDate: offsetDate(3), dueTime: '20:00', priority: 'low', notes: '', status: 'todo', createdAt: now, notifiedReminder: false },
+    { id: uid(), title: '回复设计师的反馈邮件', dueDate: offsetDate(-2), dueTime: '12:00', priority: 'low', notes: '', status: 'done', createdAt: now, notifiedReminder: false },
   ];
 
   saveTasks(demoTasks);
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
 }
 
 function initTasksView() {
@@ -92,7 +96,7 @@ function initTasksView() {
     } else {
       tasks.push(Object.assign({
         id: uid(),
-        done: false,
+        status: 'todo',
         createdAt: new Date().toISOString(),
         notifiedReminder: false,
       }, taskData));
@@ -101,7 +105,7 @@ function initTasksView() {
     saveTasks(tasks);
     form.classList.add('hidden');
     form.reset();
-    renderTasks();
+    render();
   });
 
   document.querySelectorAll('.filter-btn').forEach(function (btn) {
@@ -109,11 +113,20 @@ function initTasksView() {
       document.querySelectorAll('.filter-btn').forEach(function (b) { b.classList.remove('active'); });
       btn.classList.add('active');
       currentFilter = btn.dataset.filter;
-      renderTasks();
+      render();
     });
   });
 
-  renderTasks();
+  document.querySelectorAll('.switch-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.switch-btn').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      currentViewMode = btn.dataset.viewmode;
+      render();
+    });
+  });
+
+  render();
 }
 
 function getFilteredTasks() {
@@ -124,36 +137,70 @@ function getFilteredTasks() {
 
   switch (currentFilter) {
     case 'today': return tasks.filter(function (t) { return t.dueDate === todayStr; });
-    case 'pending': return tasks.filter(function (t) { return !t.done; });
-    case 'done': return tasks.filter(function (t) { return t.done; });
+    case 'pending': return tasks.filter(function (t) { return t.status !== 'done'; });
+    case 'done': return tasks.filter(function (t) { return t.status === 'done'; });
     default: return tasks;
   }
 }
 
-function renderTasks() {
-  const list = document.getElementById('taskList');
-  const empty = document.getElementById('emptyState');
+function render() {
   const tasks = getFilteredTasks();
-  const now = new Date();
+  const emptyEl = document.getElementById('emptyState');
+  const listEl = document.getElementById('taskList');
+  const tableWrap = document.getElementById('taskTableWrap');
+  const kanban = document.getElementById('kanbanBoard');
 
+  listEl.classList.add('hidden');
+  tableWrap.classList.add('hidden');
+  kanban.classList.add('hidden');
+
+  if (tasks.length === 0) {
+    emptyEl.style.display = 'block';
+    return;
+  }
+  emptyEl.style.display = 'none';
+
+  if (currentViewMode === 'table') {
+    tableWrap.classList.remove('hidden');
+    renderTable(tasks);
+  } else if (currentViewMode === 'kanban') {
+    kanban.classList.remove('hidden');
+    renderKanban(tasks);
+  } else {
+    listEl.classList.remove('hidden');
+    renderCardList(tasks);
+  }
+}
+
+function taskMetaHtml(task, now) {
+  const due = new Date(task.dueDate + 'T' + task.dueTime);
+  const overdue = task.status !== 'done' && due < now;
+  return {
+    overdue: overdue,
+    html:
+      '<span class="badge badge-priority">' + (PRIORITY_LABEL[task.priority] || task.priority) + '优先级</span>' +
+      '<span class="badge">📅 ' + task.dueDate + ' ' + task.dueTime + '</span>' +
+      (overdue ? '<span class="badge badge-overdue">已逾期</span>' : ''),
+  };
+}
+
+// --- 卡片视图 ---
+function renderCardList(tasks) {
+  const list = document.getElementById('taskList');
+  const now = new Date();
   list.innerHTML = '';
-  empty.style.display = tasks.length ? 'none' : 'block';
 
   tasks.forEach(function (task) {
-    const due = new Date(task.dueDate + 'T' + task.dueTime);
-    const overdue = !task.done && due < now;
-
+    const meta = taskMetaHtml(task, now);
     const li = document.createElement('li');
-    li.className = 'task-item priority-' + task.priority + (task.done ? ' done' : '') + (overdue ? ' overdue' : '');
+    li.className = 'task-item priority-' + task.priority + (task.status === 'done' ? ' done' : '') + (meta.overdue ? ' overdue' : '');
 
     li.innerHTML =
-      '<label class="task-check"><input type="checkbox" ' + (task.done ? 'checked' : '') + '></label>' +
+      '<label class="task-check"><input type="checkbox" ' + (task.status === 'done' ? 'checked' : '') + '></label>' +
       '<div class="task-body">' +
         '<div class="task-title">' + escapeHtml(task.title) + '</div>' +
-        '<div class="task-meta">' +
-          '<span class="badge badge-priority">' + (PRIORITY_LABEL[task.priority] || task.priority) + '优先级</span>' +
-          '<span class="badge">📅 ' + task.dueDate + ' ' + task.dueTime + '</span>' +
-          (overdue ? '<span class="badge badge-overdue">已逾期</span>' : '') +
+        '<div class="task-meta">' + meta.html +
+          '<span class="badge badge-status-' + task.status + '">' + STATUS_LABEL[task.status] + '</span>' +
         '</div>' +
         (task.notes ? '<div class="task-notes">' + escapeHtml(task.notes) + '</div>' : '') +
       '</div>' +
@@ -163,7 +210,7 @@ function renderTasks() {
       '</div>';
 
     li.querySelector('input[type=checkbox]').addEventListener('change', function (e) {
-      toggleDone(task.id, e.target.checked);
+      toggleTaskDone(task.id, e.target.checked);
     });
     li.querySelector('.edit-btn').addEventListener('click', function () { editTask(task.id); });
     li.querySelector('.delete-btn').addEventListener('click', function () { deleteTask(task.id); });
@@ -172,20 +219,138 @@ function renderTasks() {
   });
 }
 
-function toggleDone(id, done) {
+// --- 表格视图 ---
+function renderTable(tasks) {
+  const tbody = document.getElementById('taskTableBody');
+  const now = new Date();
+  tbody.innerHTML = '';
+
+  tasks.forEach(function (task) {
+    const meta = taskMetaHtml(task, now);
+    const tr = document.createElement('tr');
+    tr.className = task.status === 'done' ? 'done' : '';
+
+    tr.innerHTML =
+      '<td class="table-title-cell">' + escapeHtml(task.title) +
+        (task.notes ? '<div class="task-notes">' + escapeHtml(task.notes) + '</div>' : '') +
+      '</td>' +
+      '<td><span class="badge badge-priority">' + (PRIORITY_LABEL[task.priority] || task.priority) + '</span></td>' +
+      '<td>📅 ' + task.dueDate + ' ' + task.dueTime + (meta.overdue ? ' <span class="badge badge-overdue">已逾期</span>' : '') + '</td>' +
+      '<td></td>' +
+      '<td class="col-actions"><button class="icon-btn edit-btn" title="编辑">✏️</button><button class="icon-btn delete-btn" title="删除">🗑️</button></td>';
+
+    const statusSelect = document.createElement('select');
+    statusSelect.className = 'status-select';
+    STATUS_ORDER.forEach(function (s) {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = STATUS_LABEL[s];
+      if (s === task.status) opt.selected = true;
+      statusSelect.appendChild(opt);
+    });
+    statusSelect.addEventListener('change', function () {
+      moveTaskStatus(task.id, statusSelect.value);
+    });
+    tr.children[3].appendChild(statusSelect);
+
+    tr.querySelector('.edit-btn').addEventListener('click', function () { editTask(task.id); });
+    tr.querySelector('.delete-btn').addEventListener('click', function () { deleteTask(task.id); });
+
+    tbody.appendChild(tr);
+  });
+}
+
+// --- 看板视图 ---
+function renderKanban(tasks) {
+  const now = new Date();
+  const columns = {
+    todo: document.getElementById('kanbanTodo'),
+    doing: document.getElementById('kanbanDoing'),
+    done: document.getElementById('kanbanDone'),
+  };
+  Object.keys(columns).forEach(function (s) { columns[s].innerHTML = ''; });
+
+  STATUS_ORDER.forEach(function (status) {
+    const columnTasks = tasks.filter(function (t) { return t.status === status; });
+    document.getElementById('count' + status.charAt(0).toUpperCase() + status.slice(1)).textContent = columnTasks.length;
+
+    columnTasks.forEach(function (task) {
+      const meta = taskMetaHtml(task, now);
+      const idx = STATUS_ORDER.indexOf(status);
+      const card = document.createElement('div');
+      card.className = 'kanban-card priority-' + task.priority;
+      card.draggable = true;
+      card.dataset.taskId = task.id;
+
+      card.innerHTML =
+        '<div class="kanban-card-title">' + escapeHtml(task.title) + '</div>' +
+        '<div class="kanban-card-meta">' + meta.html + '</div>' +
+        (task.notes ? '<div class="kanban-card-notes">' + escapeHtml(task.notes) + '</div>' : '') +
+        '<div class="kanban-card-actions">' +
+          '<div class="kanban-move-group">' +
+            '<button class="icon-btn move-btn move-left" title="移到上一栏" ' + (idx === 0 ? 'disabled' : '') + '>◀</button>' +
+            '<button class="icon-btn move-btn move-right" title="移到下一栏" ' + (idx === STATUS_ORDER.length - 1 ? 'disabled' : '') + '>▶</button>' +
+          '</div>' +
+          '<div class="kanban-card-icons">' +
+            '<button class="icon-btn edit-btn" title="编辑">✏️</button>' +
+            '<button class="icon-btn delete-btn" title="删除">🗑️</button>' +
+          '</div>' +
+        '</div>';
+
+      card.querySelector('.move-left').addEventListener('click', function () {
+        if (idx > 0) moveTaskStatus(task.id, STATUS_ORDER[idx - 1]);
+      });
+      card.querySelector('.move-right').addEventListener('click', function () {
+        if (idx < STATUS_ORDER.length - 1) moveTaskStatus(task.id, STATUS_ORDER[idx + 1]);
+      });
+      card.querySelector('.edit-btn').addEventListener('click', function () { editTask(task.id); });
+      card.querySelector('.delete-btn').addEventListener('click', function () { deleteTask(task.id); });
+
+      card.addEventListener('dragstart', function (e) {
+        e.dataTransfer.setData('text/plain', task.id);
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      columns[status].appendChild(card);
+    });
+  });
+
+  Object.keys(columns).forEach(function (status) {
+    const el = columns[status];
+    el.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      el.classList.add('drag-over');
+    });
+    el.addEventListener('dragleave', function () {
+      el.classList.remove('drag-over');
+    });
+    el.addEventListener('drop', function (e) {
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      const taskId = e.dataTransfer.getData('text/plain');
+      if (taskId) moveTaskStatus(taskId, status);
+    });
+  });
+}
+
+function toggleTaskDone(id, done) {
+  moveTaskStatus(id, done ? 'done' : 'todo');
+}
+
+function moveTaskStatus(id, status) {
   const tasks = loadTasks();
   const t = tasks.find(function (t) { return t.id === id; });
-  if (t) {
-    t.done = done;
-    saveTasks(tasks);
-    renderTasks();
-  }
+  if (!t) return;
+  t.status = status;
+  if (status !== 'done') t.notifiedReminder = false; // 重新打开的任务，到期时可以再提醒一次
+  saveTasks(tasks);
+  render();
 }
 
 function deleteTask(id) {
   if (!confirm('确定要删除这个任务吗？')) return;
   saveTasks(loadTasks().filter(function (t) { return t.id !== id; }));
-  renderTasks();
+  render();
 }
 
 function editTask(id) {

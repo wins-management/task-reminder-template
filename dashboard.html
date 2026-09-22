@@ -8,120 +8,163 @@
 </head>
 <body>
 <div class="app-shell">
-  <header class="app-header">
-    <div class="brand">📋 任务管理器</div>
-    <nav class="main-nav">
-      <button class="nav-btn active" data-view="tasks">任务列表</button>
-      <button class="nav-btn" data-view="settings">📱 WhatsApp 提醒设置</button>
+  <aside class="sidebar">
+    <div class="sidebar-brand">📋 任务管理器</div>
+    <nav class="sidebar-nav">
+      <button class="sidebar-link active" data-view="tasks">📋 任务列表</button>
+      <button class="sidebar-link" data-view="settings">📱 WhatsApp 提醒设置</button>
     </nav>
-    <div class="user-box">
-      <span id="userLabel"></span>
-      <button class="btn btn-ghost" id="logoutBtn">退出登录</button>
+    <div class="sidebar-footer">
+      <span id="userLabel" class="sidebar-user"></span>
+      <button class="btn btn-ghost btn-block" id="logoutBtn">退出登录</button>
     </div>
-  </header>
+  </aside>
 
-  <main class="app-main">
-    <!-- 任务列表视图 -->
-    <section id="view-tasks" class="view active">
-      <div class="view-header">
-        <h2>我的任务</h2>
-        <button class="btn btn-primary" id="toggleFormBtn">+ 新增任务</button>
-      </div>
-
-      <form id="taskForm" class="task-form hidden">
-        <input type="hidden" id="taskId">
-        <div class="form-row">
-          <label>标题
-            <input type="text" id="taskTitle" placeholder="例如：提交周报" required>
-          </label>
+  <div class="app-content">
+    <main class="app-main">
+      <!-- 任务列表视图 -->
+      <section id="view-tasks" class="view active">
+        <div class="view-header">
+          <h2>我的任务</h2>
+          <button class="btn btn-primary" id="toggleFormBtn">+ 新增任务</button>
         </div>
-        <div class="form-row form-row-3">
-          <label>截止日期
-            <input type="date" id="taskDate" required>
-          </label>
-          <label>截止时间
-            <input type="time" id="taskTime" required>
-          </label>
-          <label>优先级
-            <select id="taskPriority">
-              <option value="low">低</option>
-              <option value="medium" selected>中</option>
-              <option value="high">高</option>
-            </select>
-          </label>
-        </div>
-        <div class="form-row">
-          <label>备注
-            <textarea id="taskNotes" rows="2" placeholder="补充说明（可选）"></textarea>
-          </label>
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary">保存任务</button>
-          <button type="button" class="btn btn-ghost" id="cancelFormBtn">取消</button>
-        </div>
-      </form>
 
-      <div class="filter-bar">
-        <button class="filter-btn active" data-filter="all">全部</button>
-        <button class="filter-btn" data-filter="today">今日</button>
-        <button class="filter-btn" data-filter="pending">未完成</button>
-        <button class="filter-btn" data-filter="done">已完成</button>
-      </div>
-
-      <ul class="task-list" id="taskList"></ul>
-      <p class="empty-state" id="emptyState">暂无任务，点击「+ 新增任务」开始规划吧～</p>
-    </section>
-
-    <!-- WhatsApp 设置视图 -->
-    <section id="view-settings" class="view">
-      <div class="view-header">
-        <h2>📱 WhatsApp 到期提醒</h2>
-      </div>
-
-      <div class="mock-banner">
-        📱 <strong>连接方式和 WhatsApp Web 一样</strong>：先启动 <code>server/</code> 里的本地服务，再用手机 WhatsApp
-        「已连接的设备 → 连接设备」扫描下方二维码，把你自己的 WhatsApp 挂上去。到期提醒会发到你自己的聊天里。
-        这里用的是非官方的 WhatsApp Web 协议（Baileys），只适合自我提醒，请勿用于批量发送或营销，详见项目 README。
-      </div>
-
-      <div class="card settings-card">
-        <div class="connection-panel">
-          <div class="qr-box" id="qrBox">
-            <p class="qr-placeholder" id="qrPlaceholder">正在连接本地服务…</p>
-            <img id="qrImage" class="qr-image hidden" alt="WhatsApp 连接二维码">
+        <form id="taskForm" class="task-form hidden">
+          <input type="hidden" id="taskId">
+          <div class="form-row">
+            <label>标题
+              <input type="text" id="taskTitle" placeholder="例如：提交周报" required>
+            </label>
           </div>
-          <div class="connection-info">
-            <p class="bind-status" id="bindStatus">状态：检查中…</p>
-            <div class="form-row">
-              <label class="checkbox-row">
-                <input type="checkbox" id="remindersEnabled">
-                启用到期提醒
-              </label>
-              <label>提前提醒时间
-                <select id="leadMinutes">
-                  <option value="15">提前 15 分钟</option>
-                  <option value="30">提前 30 分钟</option>
-                  <option value="60" selected>提前 1 小时</option>
-                  <option value="1440">提前 1 天</option>
-                </select>
-              </label>
-            </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" id="saveSettingsBtn">保存提醒设置</button>
-              <button class="btn btn-danger" id="disconnectBtn">断开 WhatsApp 连接</button>
-              <button class="btn btn-ghost" id="testReminderBtn">发送测试提醒</button>
-            </div>
+          <div class="form-row form-row-3">
+            <label>截止日期
+              <input type="date" id="taskDate" required>
+            </label>
+            <label>截止时间
+              <input type="time" id="taskTime" required>
+            </label>
+            <label>优先级
+              <select id="taskPriority">
+                <option value="low">低</option>
+                <option value="medium" selected>中</option>
+                <option value="high">高</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>备注
+              <textarea id="taskNotes" rows="2" placeholder="补充说明（可选）"></textarea>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">保存任务</button>
+            <button type="button" class="btn btn-ghost" id="cancelFormBtn">取消</button>
+          </div>
+        </form>
+
+        <div class="toolbar">
+          <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all">全部</button>
+            <button class="filter-btn" data-filter="today">今日</button>
+            <button class="filter-btn" data-filter="pending">未完成</button>
+            <button class="filter-btn" data-filter="done">已完成</button>
+          </div>
+          <div class="view-switch">
+            <button class="switch-btn active" data-viewmode="card">🗂️ 卡片</button>
+            <button class="switch-btn" data-viewmode="table">📊 表格</button>
+            <button class="switch-btn" data-viewmode="kanban">📌 看板</button>
           </div>
         </div>
-      </div>
 
-      <div class="card">
-        <h3>提醒记录（发送日志）</h3>
-        <ul class="reminder-log" id="reminderLog"></ul>
-        <p class="empty-state" id="logEmptyState">暂无记录</p>
-      </div>
-    </section>
-  </main>
+        <!-- 卡片视图 -->
+        <ul class="task-list" id="taskList"></ul>
+
+        <!-- 表格视图 -->
+        <div class="task-table-wrap hidden" id="taskTableWrap">
+          <table class="task-table">
+            <thead>
+              <tr>
+                <th>标题</th>
+                <th>优先级</th>
+                <th>截止时间</th>
+                <th>状态</th>
+                <th class="col-actions">操作</th>
+              </tr>
+            </thead>
+            <tbody id="taskTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- 看板视图 -->
+        <div class="kanban-board hidden" id="kanbanBoard">
+          <div class="kanban-column" data-status="todo">
+            <div class="kanban-column-header">待办 <span class="kanban-count" id="countTodo">0</span></div>
+            <div class="kanban-column-body" id="kanbanTodo"></div>
+          </div>
+          <div class="kanban-column" data-status="doing">
+            <div class="kanban-column-header">进行中 <span class="kanban-count" id="countDoing">0</span></div>
+            <div class="kanban-column-body" id="kanbanDoing"></div>
+          </div>
+          <div class="kanban-column" data-status="done">
+            <div class="kanban-column-header">已完成 <span class="kanban-count" id="countDone">0</span></div>
+            <div class="kanban-column-body" id="kanbanDone"></div>
+          </div>
+        </div>
+
+        <p class="empty-state" id="emptyState">暂无任务，点击「+ 新增任务」开始规划吧～</p>
+      </section>
+
+      <!-- WhatsApp 设置视图 -->
+      <section id="view-settings" class="view">
+        <div class="view-header">
+          <h2>📱 WhatsApp 到期提醒</h2>
+        </div>
+
+        <div class="mock-banner">
+          📱 <strong>连接方式和 WhatsApp Web 一样</strong>：先启动 <code>server/</code> 里的本地服务，再用手机 WhatsApp
+          「已连接的设备 → 连接设备」扫描下方二维码，把你自己的 WhatsApp 挂上去。到期提醒会发到你自己的聊天里。
+          这里用的是非官方的 WhatsApp Web 协议（Baileys），只适合自我提醒，请勿用于批量发送或营销，详见项目 README。
+        </div>
+
+        <div class="card settings-card">
+          <div class="connection-panel">
+            <div class="qr-box" id="qrBox">
+              <p class="qr-placeholder" id="qrPlaceholder">正在连接本地服务…</p>
+              <img id="qrImage" class="qr-image hidden" alt="WhatsApp 连接二维码">
+            </div>
+            <div class="connection-info">
+              <p class="bind-status" id="bindStatus">状态：检查中…</p>
+              <div class="form-row">
+                <label class="checkbox-row">
+                  <input type="checkbox" id="remindersEnabled">
+                  启用到期提醒
+                </label>
+                <label>提前提醒时间
+                  <select id="leadMinutes">
+                    <option value="15">提前 15 分钟</option>
+                    <option value="30">提前 30 分钟</option>
+                    <option value="60" selected>提前 1 小时</option>
+                    <option value="1440">提前 1 天</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" id="saveSettingsBtn">保存提醒设置</button>
+                <button class="btn btn-danger" id="disconnectBtn">断开 WhatsApp 连接</button>
+                <button class="btn btn-ghost" id="testReminderBtn">发送测试提醒</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>提醒记录（发送日志）</h3>
+          <ul class="reminder-log" id="reminderLog"></ul>
+          <p class="empty-state" id="logEmptyState">暂无记录</p>
+        </div>
+      </section>
+    </main>
+  </div>
 </div>
 
 <script src="js/auth.js"></script>
@@ -132,9 +175,9 @@
   document.getElementById('userLabel').textContent = '当前用户：' + (sessionStorage.getItem('tm_username') || '');
   document.getElementById('logoutBtn').addEventListener('click', logout);
 
-  document.querySelectorAll('.nav-btn').forEach(function (btn) {
+  document.querySelectorAll('.sidebar-link').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      document.querySelectorAll('.nav-btn').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.sidebar-link').forEach(function (b) { b.classList.remove('active'); });
       document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
       btn.classList.add('active');
       document.getElementById('view-' + btn.dataset.view).classList.add('active');
