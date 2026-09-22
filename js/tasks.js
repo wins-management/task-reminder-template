@@ -9,9 +9,20 @@ const STATUS_ORDER = ['todo', 'doing', 'done'];
 let currentFilter = 'all';
 let currentViewMode = 'card';
 
+// 早期版本的任务只有 done（布尔值），没有 status。这里做个兼容迁移，
+// 让浏览器里旧版本留下的任务也能在表格/看板视图里正常显示。
+function normalizeTask(t) {
+  if (!t.status) {
+    t.status = t.done ? 'done' : 'todo';
+  }
+  delete t.done;
+  return t;
+}
+
 function loadTasks() {
   try {
-    return JSON.parse(localStorage.getItem(TASKS_KEY)) || [];
+    const tasks = JSON.parse(localStorage.getItem(TASKS_KEY)) || [];
+    return tasks.map(normalizeTask);
   } catch (e) {
     return [];
   }
@@ -60,6 +71,7 @@ function seedDemoTasksIfEmpty() {
 
 function initTasksView() {
   seedDemoTasksIfEmpty();
+  saveTasks(loadTasks()); // 把旧格式（done → status）迁移的结果写回去，避免每次都要重新推算
 
   const form = document.getElementById('taskForm');
   const toggleBtn = document.getElementById('toggleFormBtn');
