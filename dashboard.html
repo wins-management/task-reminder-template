@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>任务管理器</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <header class="app-header">
+    <div class="brand">📋 任务管理器</div>
+    <nav class="main-nav">
+      <button class="nav-btn active" data-view="tasks">任务列表</button>
+      <button class="nav-btn" data-view="settings">📱 WhatsApp 提醒设置</button>
+    </nav>
+    <div class="user-box">
+      <span id="userLabel"></span>
+      <button class="btn btn-ghost" id="logoutBtn">退出登录</button>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <!-- 任务列表视图 -->
+    <section id="view-tasks" class="view active">
+      <div class="view-header">
+        <h2>我的任务</h2>
+        <button class="btn btn-primary" id="toggleFormBtn">+ 新增任务</button>
+      </div>
+
+      <form id="taskForm" class="task-form hidden">
+        <input type="hidden" id="taskId">
+        <div class="form-row">
+          <label>标题
+            <input type="text" id="taskTitle" placeholder="例如：提交周报" required>
+          </label>
+        </div>
+        <div class="form-row form-row-3">
+          <label>截止日期
+            <input type="date" id="taskDate" required>
+          </label>
+          <label>截止时间
+            <input type="time" id="taskTime" required>
+          </label>
+          <label>优先级
+            <select id="taskPriority">
+              <option value="low">低</option>
+              <option value="medium" selected>中</option>
+              <option value="high">高</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-row">
+          <label>备注
+            <textarea id="taskNotes" rows="2" placeholder="补充说明（可选）"></textarea>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">保存任务</button>
+          <button type="button" class="btn btn-ghost" id="cancelFormBtn">取消</button>
+        </div>
+      </form>
+
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all">全部</button>
+        <button class="filter-btn" data-filter="today">今日</button>
+        <button class="filter-btn" data-filter="pending">未完成</button>
+        <button class="filter-btn" data-filter="done">已完成</button>
+      </div>
+
+      <ul class="task-list" id="taskList"></ul>
+      <p class="empty-state" id="emptyState">暂无任务，点击「+ 新增任务」开始规划吧～</p>
+    </section>
+
+    <!-- WhatsApp 设置视图 -->
+    <section id="view-settings" class="view">
+      <div class="view-header">
+        <h2>📱 WhatsApp 到期提醒</h2>
+      </div>
+
+      <div class="mock-banner">
+        ⚠️ <strong>这是模拟（Mock）功能</strong>：当前版本不会真的把消息发送到 WhatsApp，只会在下方「提醒记录」中模拟一条已发送的消息，并尝试弹出浏览器通知。
+        真实串接需要后端服务器 + WhatsApp Business Cloud API（或 Twilio 等第三方服务）来调用发送接口，详见
+        <code>js/reminder.js</code> 中的 <code>sendWhatsAppMessage()</code> 函数与项目 README。
+      </div>
+
+      <div class="card settings-card">
+        <div class="form-row">
+          <label>WhatsApp 号码（含国家代码）
+            <input type="tel" id="whatsappNumber" placeholder="例如：+886912345678">
+          </label>
+        </div>
+        <div class="form-row form-row-2">
+          <label class="checkbox-row">
+            <input type="checkbox" id="remindersEnabled">
+            启用到期提醒
+          </label>
+          <label>提前提醒时间
+            <select id="leadMinutes">
+              <option value="15">提前 15 分钟</option>
+              <option value="30">提前 30 分钟</option>
+              <option value="60" selected>提前 1 小时</option>
+              <option value="1440">提前 1 天</option>
+            </select>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="bindBtn">绑定 / 保存设置</button>
+          <button class="btn btn-danger" id="unbindBtn">解除绑定</button>
+          <button class="btn btn-ghost" id="testReminderBtn">发送测试提醒</button>
+        </div>
+        <p class="bind-status" id="bindStatus"></p>
+      </div>
+
+      <div class="card">
+        <h3>提醒记录（模拟发送日志）</h3>
+        <ul class="reminder-log" id="reminderLog"></ul>
+        <p class="empty-state" id="logEmptyState">暂无记录</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="js/auth.js"></script>
+<script src="js/tasks.js"></script>
+<script src="js/reminder.js"></script>
+<script>
+  requireLogin();
+  document.getElementById('userLabel').textContent = '当前用户：' + (sessionStorage.getItem('tm_username') || '');
+  document.getElementById('logoutBtn').addEventListener('click', logout);
+
+  document.querySelectorAll('.nav-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.nav-btn').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('view-' + btn.dataset.view).classList.add('active');
+    });
+  });
+
+  initTasksView();
+  initReminderView();
+  startReminderEngine();
+</script>
+</body>
+</html>

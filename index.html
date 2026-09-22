@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>任务管理器 · 登录</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="login-page">
+  <div class="login-card">
+    <div class="login-logo">📋</div>
+    <h1>任务管理器</h1>
+    <p class="subtitle">Claude Code 教学模板</p>
+
+    <form id="loginForm" novalidate>
+      <label>账号
+        <input type="text" id="username" autocomplete="username" placeholder="1234" required>
+      </label>
+      <label>密码
+        <input type="password" id="password" autocomplete="current-password" placeholder="1234" required>
+      </label>
+      <p class="error-msg" id="errorMsg"></p>
+      <button type="submit" class="btn btn-primary btn-block">登录</button>
+    </form>
+
+    <p class="hint">演示账号：<code>1234</code> / 密码：<code>1234</code></p>
+    <p class="mock-note">⚠️ 这是前端模拟（Mock）登录：账号密码写死在 <code>js/auth.js</code> 中，仅用于教学演示，请勿直接用于真实产品。</p>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    if (isLoggedIn()) {
+      window.location.href = 'dashboard.html';
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('errorMsg');
+
+      if (login(username, password)) {
+        window.location.href = 'dashboard.html';
+      } else {
+        errorMsg.textContent = '账号或密码错误，请重试（提示：1234 / 1234）';
+      }
+    });
+  </script>
+</body>
+</html>
