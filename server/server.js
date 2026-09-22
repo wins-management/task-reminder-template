@@ -21,10 +21,31 @@ const {
 } = require('@whiskeysockets/baileys');
 
 const PORT = process.env.PORT || 3001;
+// 默认只监听本机回环地址，不对局域网内的其他设备开放（避免同网段的人也能扫到
+// 你的二维码、调用发送接口）。真的需要局域网访问时可以用 HOST=0.0.0.0 覆盖。
+const HOST = process.env.HOST || '127.0.0.1';
 const AUTH_DIR = path.join(__dirname, 'auth_info');
 
+// 只允许「已知的前端页面来源」跨域调用发送接口，避免用户浏览器里打开的任何
+// 一个网页都能悄悄 fetch 这个本地服务、借你的 WhatsApp 发消息（CSRF-to-localhost）。
+// 'null' 是浏览器对 file:// 页面（直接双击 index.html 打开）发出的 Origin 值。
+// 换了前端端口/域名，用逗号分隔的 ALLOWED_ORIGINS 环境变量覆盖即可。
+const DEFAULT_ALLOWED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000', 'null'];
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(function (s) { return s.trim(); })
+  : DEFAULT_ALLOWED_ORIGINS;
+
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: function (origin, callback) {
+    // 没有 Origin（比如用 curl/Postman 直接调用）先放行，方便本机调试；
+    // 真正要拦的是浏览器里「别的网页」发起的跨域请求。
+    if (!origin || ALLOWED_ORIGINS.indexOf(origin) !== -1) {
+      return callback(null, true);
+    }
+    callback(new Error('CORS：来源不在白名单内 — ' + origin));
+  },
+}));
 app.use(express.json());
 
 let sock = null;
@@ -67,8 +88,13 @@ async function startWhatsApp() {
       if (loggedOut) {
         console.log('已在手机上解除连接（登出）。刷新页面重新扫码即可再次连接。');
       } else {
-        console.log('连接断开，尝试重新连接…');
-        startWhatsApp();
+        // 延迟一下再重连，避免网络不稳定时无限快速重试（容易被当成异常行为）。
+        console.log('连接断开，3 秒后尝试重新连接…');
+        setTimeout(function () {
+          startWhatsApp().catch(function (err) {
+            console.error('重新连接失败：', err);
+          });
+        }, 3000);
       }
     }
   });
@@ -121,6 +147,7 @@ app.post('/api/logout', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.listen(PORT, () => {
-  console.log(`WhatsApp 提醒后端已启动：http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`WhatsApp 提醒后端已启动：http://${HOST}:${PORT}`);
+  console.log(`允许跨域来源：${ALLOWED_ORIGINS.join(', ')}`);
 });

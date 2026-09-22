@@ -36,6 +36,8 @@ function uid() {
   return 't_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 }
 
+// 所有拼 innerHTML 的地方都要经过这里转义，不要直接把用户输入（标题/备注等）
+// 拼进字符串——新加字段时也一样，否则会有 XSS 风险。
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -217,8 +219,8 @@ function renderCardList(tasks) {
         (task.notes ? '<div class="task-notes">' + escapeHtml(task.notes) + '</div>' : '') +
       '</div>' +
       '<div class="task-actions">' +
-        '<button class="icon-btn edit-btn" title="编辑">✏️</button>' +
-        '<button class="icon-btn delete-btn" title="删除">🗑️</button>' +
+        '<button class="icon-btn edit-btn" title="编辑" aria-label="编辑任务">✏️</button>' +
+        '<button class="icon-btn delete-btn" title="删除" aria-label="删除任务">🗑️</button>' +
       '</div>';
 
     li.querySelector('input[type=checkbox]').addEventListener('change', function (e) {
@@ -248,8 +250,8 @@ function renderTable(tasks) {
       '</td>' +
       '<td><span class="badge badge-priority">' + (PRIORITY_LABEL[task.priority] || task.priority) + '</span></td>' +
       '<td>📅 ' + task.dueDate + ' ' + task.dueTime + (meta.overdue ? ' <span class="badge badge-overdue">已逾期</span>' : '') + '</td>' +
-      '<td></td>' +
-      '<td class="col-actions"><button class="icon-btn edit-btn" title="编辑">✏️</button><button class="icon-btn delete-btn" title="删除">🗑️</button></td>';
+      '<td class="col-status"></td>' +
+      '<td class="col-actions"><button class="icon-btn edit-btn" title="编辑" aria-label="编辑任务">✏️</button><button class="icon-btn delete-btn" title="删除" aria-label="删除任务">🗑️</button></td>';
 
     const statusSelect = document.createElement('select');
     statusSelect.className = 'status-select';
@@ -263,7 +265,8 @@ function renderTable(tasks) {
     statusSelect.addEventListener('change', function () {
       moveTaskStatus(task.id, statusSelect.value);
     });
-    tr.children[3].appendChild(statusSelect);
+    // 用 class 定位状态单元格，不依赖列的下标顺序——以后加/减列不会悄悄错位。
+    tr.querySelector('.col-status').appendChild(statusSelect);
 
     tr.querySelector('.edit-btn').addEventListener('click', function () { editTask(task.id); });
     tr.querySelector('.delete-btn').addEventListener('click', function () { deleteTask(task.id); });
@@ -300,12 +303,12 @@ function renderKanban(tasks) {
         (task.notes ? '<div class="kanban-card-notes">' + escapeHtml(task.notes) + '</div>' : '') +
         '<div class="kanban-card-actions">' +
           '<div class="kanban-move-group">' +
-            '<button class="icon-btn move-btn move-left" title="移到上一栏" ' + (idx === 0 ? 'disabled' : '') + '>◀</button>' +
-            '<button class="icon-btn move-btn move-right" title="移到下一栏" ' + (idx === STATUS_ORDER.length - 1 ? 'disabled' : '') + '>▶</button>' +
+            '<button class="icon-btn move-btn move-left" title="移到上一栏" aria-label="移到上一栏" ' + (idx === 0 ? 'disabled' : '') + '>◀</button>' +
+            '<button class="icon-btn move-btn move-right" title="移到下一栏" aria-label="移到下一栏" ' + (idx === STATUS_ORDER.length - 1 ? 'disabled' : '') + '>▶</button>' +
           '</div>' +
           '<div class="kanban-card-icons">' +
-            '<button class="icon-btn edit-btn" title="编辑">✏️</button>' +
-            '<button class="icon-btn delete-btn" title="删除">🗑️</button>' +
+            '<button class="icon-btn edit-btn" title="编辑" aria-label="编辑任务">✏️</button>' +
+            '<button class="icon-btn delete-btn" title="删除" aria-label="删除任务">🗑️</button>' +
           '</div>' +
         '</div>';
 

@@ -174,28 +174,30 @@ function checkDueTasksAndRemind() {
   const settings = loadReminderSettings();
   if (!settings.enabled || currentStatus !== 'connected') return;
 
-  const tasks = loadTasks();
   const now = new Date();
-  let changed = false;
+  const leadMs = settings.leadMinutes * 60 * 1000;
 
-  tasks.forEach(function (task) {
+  loadTasks().forEach(function (task) {
     if (task.status === 'done' || task.notifiedReminder) return;
 
     const due = new Date(task.dueDate + 'T' + task.dueTime);
-    const leadMs = settings.leadMinutes * 60 * 1000;
     const remindAt = new Date(due.getTime() - leadMs);
+    if (now < remindAt) return;
 
-    if (now >= remindAt) {
-      const message = now >= due
-        ? '⏰ 任务《' + task.title + '》已到期！'
-        : '⏰ 任务《' + task.title + '》将在 ' + settings.leadMinutes + ' 分钟内到期，请及时处理。';
-      sendWhatsAppMessage(message);
-      task.notifiedReminder = true;
-      changed = true;
-    }
+    // 先重新读一次并立刻标记 + 写回，再去发消息（而不是发送成功后才标记）。
+    // 这样如果同时开着多个标签页，两边都在轮询，重复发送同一条提醒的
+    // 时间窗口会缩小到「读 + 写 localStorage」这一瞬间，而不是整个网络请求耗时。
+    const tasks = loadTasks();
+    const t = tasks.find(function (x) { return x.id === task.id; });
+    if (!t || t.status === 'done' || t.notifiedReminder) return;
+    t.notifiedReminder = true;
+    saveTasks(tasks);
+
+    const message = now >= due
+      ? '⏰ 任务《' + task.title + '》已到期！'
+      : '⏰ 任务《' + task.title + '》将在 ' + settings.leadMinutes + ' 分钟内到期，请及时处理。';
+    sendWhatsAppMessage(message);
   });
-
-  if (changed) saveTasks(tasks);
 }
 
 function startReminderEngine() {
