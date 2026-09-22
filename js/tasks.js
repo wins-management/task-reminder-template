@@ -21,6 +21,33 @@ function uid() {
   return 't_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 }
 
+// 首次打开时塞几笔示范任务，让界面一开始看起来就有内容，方便想象实际用起来的样子。
+// 只在「从未 seed 过」且「目前没有任务」时执行一次，之后学员自己增删都不会再被覆盖。
+function seedDemoTasksIfEmpty() {
+  const SEEDED_KEY = 'tm_seeded';
+  if (localStorage.getItem(SEEDED_KEY)) return;
+  localStorage.setItem(SEEDED_KEY, 'true');
+  if (loadTasks().length > 0) return;
+
+  function offsetDate(days) {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  const now = new Date().toISOString();
+  const demoTasks = [
+    { id: uid(), title: '提交本周工作周报', dueDate: offsetDate(0), dueTime: '18:00', priority: 'high', notes: '记得附上下周计划', done: false, createdAt: now, notifiedReminder: false },
+    { id: uid(), title: '客户提案设计稿定稿', dueDate: offsetDate(0), dueTime: '15:30', priority: 'high', notes: '', done: false, createdAt: now, notifiedReminder: false },
+    { id: uid(), title: '缴纳这个月的水电费', dueDate: offsetDate(-1), dueTime: '23:59', priority: 'medium', notes: '网银转账即可', done: false, createdAt: now, notifiedReminder: false },
+    { id: uid(), title: '团队周会', dueDate: offsetDate(1), dueTime: '10:00', priority: 'medium', notes: '会议室 A', done: false, createdAt: now, notifiedReminder: false },
+    { id: uid(), title: '复习 Claude Code 课程笔记', dueDate: offsetDate(3), dueTime: '20:00', priority: 'low', notes: '', done: false, createdAt: now, notifiedReminder: false },
+    { id: uid(), title: '回复设计师的反馈邮件', dueDate: offsetDate(-2), dueTime: '12:00', priority: 'low', notes: '', done: true, createdAt: now, notifiedReminder: false },
+  ];
+
+  saveTasks(demoTasks);
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -28,6 +55,8 @@ function escapeHtml(str) {
 }
 
 function initTasksView() {
+  seedDemoTasksIfEmpty();
+
   const form = document.getElementById('taskForm');
   const toggleBtn = document.getElementById('toggleFormBtn');
   const cancelBtn = document.getElementById('cancelFormBtn');
